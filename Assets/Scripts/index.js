@@ -1,4 +1,4 @@
-const API_URL = 'http://localhost:5099';
+const API_URL = 'https://ecode-api-oc7z.onrender.com';
 const REMEMBERED_USER_KEY = 'ecode_remembered_user';
 const CUSTOM_CATEGORY_KEY_PREFIX = 'ecode_custom_categories_';
 const MAX_CUSTOM_CATEGORIES = 3;
