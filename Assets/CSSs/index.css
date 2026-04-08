@@ -58,6 +58,10 @@
     -webkit-font-smoothing: antialiased;
   }
 
+  a {
+    color: var(--text-muted);
+  }
+
   body.modal-open {
     overflow: hidden;
     touch-action: none;
