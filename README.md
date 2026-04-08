@@ -35,11 +35,11 @@ It includes a browser-based frontend, SQL database scripts, and integration poin
 ECode/
 +- index.html
 +- Assets/
-�  +- CSSs/
-�  �  L- index.css
-�  L- Scripts/
-�     +- index.js
-�     L- jsQR.min.js
+  +- CSSs/
+    L- index.css
+  L- Scripts/
+     +- index.js
+     L- jsQR.min.js
 L- Database/
    +- ECodeDB.sql
    L- SupabaseRLS.sql
