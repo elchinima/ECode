@@ -259,12 +259,6 @@
     align-items: start;
   }
 
-  @media (max-width: 768px) {
-    .two-col {
-      grid-template-columns: 1fr;
-    }
-  }
-
   .card {
     background: var(--surface);
     border: 1px solid var(--border);
@@ -438,6 +432,26 @@
     border-top-color: #ffffff;
     border-radius: 50%;
     animation: btnSpin 0.7s linear infinite;
+  }
+
+  #authSubmitText {
+    display: inline-block;
+  }
+
+  #authSubmitText.loading-text-change {
+    animation: authLoadingTextChange 0.45s ease;
+  }
+
+  @keyframes authLoadingTextChange {
+    0% {
+      opacity: 0.35;
+      transform: translateY(4px);
+    }
+
+    100% {
+      opacity: 1;
+      transform: translateY(0);
+    }
   }
 
   @keyframes btnSpin {
@@ -1027,6 +1041,112 @@
     display: flex;
     justify-content: flex-end;
     gap: 10px;
+  }
+
+  .qr-build-modal .modal-card {
+    max-width: 480px;
+  }
+
+  .qr-build-stage {
+    width: 220px;
+    height: 220px;
+    margin: 0 auto;
+    border-radius: var(--radius);
+    border: 1px solid var(--border);
+    background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    position: relative;
+  }
+
+  .qr-build-grid {
+    width: 180px;
+    height: 180px;
+    display: grid;
+    grid-template-columns: repeat(6, 1fr);
+    gap: 6px;
+  }
+
+  .qr-build-cell {
+    background: rgba(49, 77, 120, 0.14);
+    border-radius: 3px;
+    opacity: 0.18;
+    animation: qrCellBuild 1.25s ease-in-out infinite;
+    animation-delay: var(--delay);
+  }
+
+  .qr-build-final {
+    width: 180px;
+    height: 180px;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    animation: fadeInScale 0.35s ease;
+  }
+
+  .qr-build-final canvas,
+  .qr-build-final img {
+    width: 100%;
+    height: 100%;
+    display: block;
+  }
+
+  @keyframes qrCellBuild {
+    0%, 100% {
+      opacity: 0.2;
+      transform: scale(0.9);
+      background: rgba(49, 77, 120, 0.1);
+    }
+
+    50% {
+      opacity: 0.95;
+      transform: scale(1);
+      background: rgba(49, 77, 120, 0.45);
+    }
+  }
+
+  .qr-delete-modal .modal-card {
+    max-width: 480px;
+  }
+
+  .qr-delete-stage {
+    width: 220px;
+    height: 220px;
+    margin: 0 auto;
+    border-radius: var(--radius);
+    border: 1px solid var(--border);
+    background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+    display: grid;
+    grid-template-columns: repeat(10, 1fr);
+    gap: 4px;
+    padding: 16px;
+    overflow: hidden;
+  }
+
+  .qr-delete-cell {
+    background: #0f172a;
+    border-radius: 2px;
+    transform: translateY(0) rotate(0deg);
+    opacity: 1;
+  }
+
+  .qr-delete-cell.is-falling {
+    animation: qrCellFall 0.9s ease-in forwards;
+    animation-delay: var(--fall-delay);
+  }
+
+  @keyframes qrCellFall {
+    0% {
+      transform: translateY(0) rotate(0deg) scale(1);
+      opacity: 1;
+    }
+
+    100% {
+      transform: translateY(42px) rotate(16deg) scale(0.4);
+      opacity: 0;
+    }
   }
 
   .counter-row {

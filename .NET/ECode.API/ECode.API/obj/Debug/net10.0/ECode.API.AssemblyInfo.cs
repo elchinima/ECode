@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("ECode.API")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+4b14378d9054cb75c155f8c7d26387a898d75974")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+0a8f37490253fbb51dc0ee33d36921c42c04acbd")]
 [assembly: System.Reflection.AssemblyProductAttribute("ECode.API")]
 [assembly: System.Reflection.AssemblyTitleAttribute("ECode.API")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

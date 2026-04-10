@@ -123,7 +123,12 @@ async function loadScanCountFromDB() {
   } catch (_) {}
 }
 
+function delay(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
 async function generateQR() {
+  const generateBtn = document.getElementById('generateQrBtn');
   const name = document.getElementById('fieldName').value.trim();
   const categorySelect = document.getElementById('fieldCategory').value;
   const customCategory = document.getElementById('fieldCustomCategory').value.trim();
@@ -151,56 +156,80 @@ async function generateQR() {
   const timestamp = new Date().toISOString();
   const qrContent = buildCompactPayload({ uid });
   const qrPayload = toUTF8BinaryString(qrContent);
-  const qrContainer = document.getElementById('qrcode');
-  qrContainer.innerHTML = '';
-  document.getElementById('qrPlaceholder').style.display = 'none';
-  const frame = document.getElementById('qrFrame');
-  frame.classList.add('has-qr');
+  const categoryName = categorySelect === '__custom__' ? customCategory : categorySelect;
+  const qrModal = openQrBuildModal();
+
+  if (categorySelect === '__custom__' && !addCustomCategory(customCategory, { notify: false })) {
+    showNotif(`Max ${MAX_CUSTOM_CATEGORIES} custom categories`);
+    return;
+  }
+
+  if (generateBtn) {
+    generateBtn.disabled = true;
+    generateBtn.classList.add('is-loading');
+  }
 
   try {
+    if (CURRENT_USER_DB_ID) {
+      let attempt = 0;
+      while (true) {
+        attempt += 1;
+        try {
+          const res = await fetch(`${API_URL}/api/QrCodes`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              uid,
+              creatorUserId: CURRENT_USER_DB_ID,
+              subjectName: name || null,
+              subjectEmail: document.getElementById('fieldEmail').value.trim() || null,
+              subjectPhone: document.getElementById('fieldPhone').value.trim() || null,
+              categoryName,
+              customText: custom || null,
+              payloadText: qrContent
+            })
+          });
+          if (res.ok) break;
+        } catch (_) {}
+
+        qrModal.setStatus(attempt < 2 ? 'Saving to database...' : 'Database unavailable. Retrying...');
+        await delay(2000);
+      }
+
+      await loadHistoryFromDB();
+    } else {
+      qrModal.setStatus('No account linked. Finalizing locally...');
+      await delay(800);
+    }
+
+    qrModal.showReadyQr(qrPayload);
+    await qrModal.closeAfter(1000);
+
+    const qrContainer = document.getElementById('qrcode');
+    qrContainer.innerHTML = '';
+    document.getElementById('qrPlaceholder').style.display = 'none';
+    const frame = document.getElementById('qrFrame');
+    frame.classList.add('has-qr');
     qrInstance = createQRCodeWithFallback(qrContainer, qrPayload);
-  } catch(e) {
-    frame.classList.remove('has-qr');
-    document.getElementById('qrPlaceholder').style.display = 'flex';
+  } catch (e) {
+    qrModal.closeNow();
+    clearQRPreview();
     showNotif('Generation error: ' + (e && e.message ? e.message : 'Unknown error'));
     return;
+  } finally {
+    if (generateBtn) {
+      generateBtn.disabled = false;
+      generateBtn.classList.remove('is-loading');
+    }
   }
 
   document.getElementById('qrMetaId').textContent = uid;
   document.getElementById('qrMetaTime').textContent = formatDateTime(timestamp);
   document.getElementById('qrMeta').style.display = 'block';
   document.getElementById('qrButtons').style.display = 'flex';
-
-  const categoryName = categorySelect === '__custom__' ? customCategory : categorySelect;
-  if (categorySelect === '__custom__' && !addCustomCategory(customCategory, { notify: false })) {
-    showNotif(`Максимум ${MAX_CUSTOM_CATEGORIES} кастомные категории`);
-    return;
-  }
-
-  if (CURRENT_USER_DB_ID) {
-    try {
-      await fetch(`${API_URL}/api/QrCodes`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          uid,
-          creatorUserId: CURRENT_USER_DB_ID,
-          subjectName: name || null,
-          subjectEmail: document.getElementById('fieldEmail').value.trim() || null,
-          subjectPhone: document.getElementById('fieldPhone').value.trim() || null,
-          categoryName,
-          customText: custom || null,
-          payloadText: qrContent
-        })
-      });
-      await loadHistoryFromDB();
-    } catch (_) {}
-  }
-
   currentPreviewUid = uid;
   showNotif('QR code created successfully');
 }
-
 function downloadQR() {
   const canvas = document.querySelector('#qrcode canvas');
   const img = document.querySelector('#qrcode img');
@@ -477,13 +506,22 @@ function handleLimitBeforeInput(e) {
 async function clearHistory() {
   if (!(await openConfirmModal('Clear History', 'Are you sure you want to clear the history?'))) return;
   if (!consumeCooldown('delete', 'Delete')) return;
+  const deleteModal = openQrDeleteModal();
   if (CURRENT_USER_DB_ID) {
-    try {
-      for (const item of history) {
+    let deleted = 0;
+    for (const item of history) {
+      try {
         await fetch(`${API_URL}/api/QrCodes/${item.uid}/permanent?userId=${CURRENT_USER_DB_ID}`, { method: 'DELETE' });
+        deleted += 1;
+        deleteModal.setStatus(`Deleting from database... ${deleted}/${history.length}`);
+      } catch (_) {
+        deleteModal.closeNow();
+        showNotif('Failed to connect to server');
+        return;
       }
-    } catch (_) {}
+    }
   }
+  await deleteModal.closeAfter(500);
   history = [];
   syncGeneratedCount();
   renderHistory();
@@ -495,11 +533,17 @@ async function deleteHistoryItem(event, uid) {
   event.stopPropagation();
   if (!(await openConfirmModal('Delete Item', 'Delete this history item?'))) return;
   if (!consumeCooldown('delete', 'Delete')) return;
+  const deleteModal = openQrDeleteModal();
   if (CURRENT_USER_DB_ID) {
     try {
       await fetch(`${API_URL}/api/QrCodes/${uid}/permanent?userId=${CURRENT_USER_DB_ID}`, { method: 'DELETE' });
-    } catch (_) {}
+    } catch (_) {
+      deleteModal.closeNow();
+      showNotif('Failed to connect to server');
+      return;
+    }
   }
+  await deleteModal.closeAfter(500);
   history = history.filter(item => item.uid !== uid);
   syncGeneratedCount();
   renderHistory();
@@ -511,11 +555,17 @@ async function deleteHistoryItemForever(event, uid) {
   event.stopPropagation();
   if (!(await openConfirmModal('Delete Permanently', 'Delete this item forever? This cannot be undone.'))) return;
   if (!consumeCooldown('delete', 'Delete')) return;
+  const deleteModal = openQrDeleteModal();
   if (CURRENT_USER_DB_ID) {
     try {
       await fetch(`${API_URL}/api/QrCodes/${uid}/permanent?userId=${CURRENT_USER_DB_ID}`, { method: 'DELETE' });
-    } catch (_) {}
+    } catch (_) {
+      deleteModal.closeNow();
+      showNotif('Failed to connect to server');
+      return;
+    }
   }
+  await deleteModal.closeAfter(500);
   history = history.filter(item => item.uid !== uid);
   syncGeneratedCount();
   renderHistory();
@@ -581,6 +631,112 @@ function openConfirmModal(title, text) {
   });
 }
 
+function openQrBuildModal() {
+  const modal = document.getElementById('qrBuildModal');
+  const status = document.getElementById('qrBuildStatus');
+  const grid = document.getElementById('qrBuildGrid');
+  const finalWrap = document.getElementById('qrBuildFinal');
+  if (!modal || !status || !grid || !finalWrap) {
+    throw new Error('QR generation modal is not initialized');
+  }
+
+  const steps = ['Preparing data...', 'Building QR pattern...', 'Applying security mask...', 'Waiting for database...'];
+  let stepIndex = 0;
+  let isReady = false;
+
+  status.textContent = steps[stepIndex];
+  grid.innerHTML = '';
+  finalWrap.innerHTML = '';
+  finalWrap.style.display = 'none';
+  grid.style.display = 'grid';
+
+  for (let i = 0; i < 36; i += 1) {
+    const cell = document.createElement('div');
+    cell.className = 'qr-build-cell';
+    cell.style.setProperty('--delay', `${(i % 6) * 80 + Math.floor(i / 6) * 40}ms`);
+    grid.appendChild(cell);
+  }
+
+  modal.classList.add('show');
+  modal.setAttribute('aria-hidden', 'false');
+  updateBodyScrollLock();
+
+  const stepTimer = setInterval(() => {
+    if (isReady) return;
+    stepIndex = (stepIndex + 1) % steps.length;
+    status.textContent = steps[stepIndex];
+  }, 1300);
+
+  const closeNow = () => {
+    clearInterval(stepTimer);
+    modal.classList.remove('show');
+    modal.setAttribute('aria-hidden', 'true');
+    updateBodyScrollLock();
+  };
+
+  return {
+    setStatus(text) {
+      if (!isReady) status.textContent = text;
+    },
+    showReadyQr(payload) {
+      if (isReady) return;
+      isReady = true;
+      clearInterval(stepTimer);
+      grid.style.display = 'none';
+      finalWrap.style.display = 'flex';
+      finalWrap.innerHTML = '';
+      createQRCodeWithFallback(finalWrap, payload);
+      status.textContent = 'QR code is ready';
+    },
+    async closeAfter(ms) {
+      await delay(ms);
+      closeNow();
+    },
+    closeNow
+  };
+}
+
+function openQrDeleteModal() {
+  const modal = document.getElementById('qrDeleteModal');
+  const status = document.getElementById('qrDeleteStatus');
+  const stage = document.getElementById('qrDeleteStage');
+  if (!modal || !status || !stage) throw new Error('QR delete modal is not initialized');
+
+  status.textContent = 'Deleting QR...';
+  stage.innerHTML = '';
+
+  for (let i = 0; i < 100; i += 1) {
+    const cell = document.createElement('div');
+    cell.className = 'qr-delete-cell';
+    cell.style.setProperty('--fall-delay', `${(i % 10) * 25 + Math.floor(i / 10) * 25}ms`);
+    stage.appendChild(cell);
+  }
+
+  modal.classList.add('show');
+  modal.setAttribute('aria-hidden', 'false');
+  updateBodyScrollLock();
+
+  requestAnimationFrame(() => {
+    stage.querySelectorAll('.qr-delete-cell').forEach(cell => cell.classList.add('is-falling'));
+  });
+
+  const closeNow = () => {
+    modal.classList.remove('show');
+    modal.setAttribute('aria-hidden', 'true');
+    updateBodyScrollLock();
+  };
+
+  return {
+    setStatus(text) {
+      status.textContent = text;
+    },
+    async closeAfter(ms) {
+      await delay(ms);
+      closeNow();
+    },
+    closeNow
+  };
+}
 async function toggleCamera() {
   if (cameraStream) { stopCamera(); } else { await startCamera(); }
 }
@@ -683,21 +839,8 @@ function handleScanResult(raw) {
 
   const parsed = parsePayload(raw) || parsePayload(fromUTF8BinaryString(raw));
   const statusEl = document.getElementById('scanStatus');
-
-  statusEl.textContent = 'QR code scanned!';
-  statusEl.className = 'scan-status success';
-
-  // Сохраняем скан в БД
-  fetch(`${API_URL}/api/Scan`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      rawContent: raw,
-      scannedByUserId: CURRENT_USER_DB_ID || null
-    })
-  })
-    .then(() => loadScanCountFromDB())
-    .catch(() => {});
+  statusEl.className = 'scan-status scanning';
+  statusEl.textContent = 'Processing scan...';
 
   if (parsed) {
     const entries = [
@@ -721,13 +864,50 @@ function handleScanResult(raw) {
     showNotif('QR scanned (external format)');
   }
 
-  setTimeout(() => {
-    if (cameraStream) {
-      statusEl.textContent = 'Scanning...';
-      statusEl.className = 'scan-status scanning';
-    }
-    lastScanned = null;
-  }, 3000);
+  saveScanWithAnimatedStatus(raw, statusEl)
+    .then((saved) => {
+      statusEl.textContent = saved ? 'QR code scanned!' : 'Scanned (not synced)';
+      statusEl.className = saved ? 'scan-status success' : 'scan-status';
+    })
+    .finally(() => {
+      setTimeout(() => {
+        if (cameraStream) {
+          statusEl.textContent = 'Scanning...';
+          statusEl.className = 'scan-status scanning';
+        }
+        lastScanned = null;
+      }, 3000);
+    });
+}
+
+async function saveScanWithAnimatedStatus(raw, statusEl) {
+  const steps = ['Validating QR...', 'Saving scan...', 'Updating stats...', 'Finalizing...'];
+  let stepIndex = 0;
+  statusEl.textContent = steps[stepIndex];
+
+  const stepTimer = setInterval(() => {
+    stepIndex = (stepIndex + 1) % steps.length;
+    statusEl.textContent = steps[stepIndex];
+  }, 900);
+
+  try {
+    const res = await fetch(`${API_URL}/api/Scan`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        rawContent: raw,
+        scannedByUserId: CURRENT_USER_DB_ID || null
+      })
+    });
+
+    if (!res.ok) return false;
+    await loadScanCountFromDB();
+    return true;
+  } catch (_) {
+    return false;
+  } finally {
+    clearInterval(stepTimer);
+  }
 }
 
 function clearScanResult() {
@@ -754,18 +934,63 @@ function initAuth() {
   const appShell = document.getElementById('appShell');
   const authForm = document.getElementById('authForm');
   const submitBtn = document.getElementById('authSubmitBtn');
+  const submitText = document.getElementById('authSubmitText');
   const contactInput = document.getElementById('authContact');
   const methodInputs = document.querySelectorAll('input[name="contactType"]');
   const authError = document.getElementById('authError');
   const badge = document.querySelector('.badge');
   const rememberMe = document.getElementById('rememberMe');
   const logoutBtn = document.getElementById('logoutBtn');
+  const authLoadingMessages = {
+    login: ['Checking account...', 'Verifying password...', 'Creating secure session...', 'Almost ready...'],
+    register: ['Creating account...', 'Saving profile...', 'Setting up your workspace...', 'Almost ready...']
+  };
+
+  let loadingTextTimer = null;
+  let loadingTextIndex = 0;
+  let loadingTextMode = 'login';
+
+  const updateLoadingText = () => {
+    if (!submitText) return;
+    const messages = authLoadingMessages[loadingTextMode] || authLoadingMessages.login;
+    submitText.classList.remove('loading-text-change');
+    void submitText.offsetWidth;
+    submitText.textContent = messages[loadingTextIndex];
+    submitText.classList.add('loading-text-change');
+    loadingTextIndex = (loadingTextIndex + 1) % messages.length;
+  };
+
+  const setLoadingTextMode = (mode) => {
+    if (!authLoadingMessages[mode]) return;
+    loadingTextMode = mode;
+    loadingTextIndex = 0;
+    updateLoadingText();
+  };
+
+  const startLoadingTextRotation = () => {
+    updateLoadingText();
+    loadingTextTimer = setInterval(updateLoadingText, 3000);
+  };
+
+  const stopLoadingTextRotation = () => {
+    if (loadingTextTimer) {
+      clearInterval(loadingTextTimer);
+      loadingTextTimer = null;
+    }
+    loadingTextIndex = 0;
+    loadingTextMode = 'login';
+    if (submitText) {
+      submitText.classList.remove('loading-text-change');
+      submitText.textContent = 'Sign in';
+    }
+  };
 
   const setAuthLoading = (isLoading) => {
     if (!submitBtn) return;
     submitBtn.classList.toggle('is-loading', isLoading);
     submitBtn.disabled = isLoading;
-    submitBtn.textContent = isLoading ? 'Signing in' : 'Sign in';
+    if (isLoading) startLoadingTextRotation();
+    else stopLoadingTextRotation();
     submitBtn.setAttribute('aria-busy', isLoading ? 'true' : 'false');
   };
 
@@ -828,7 +1053,7 @@ function initAuth() {
     appShell.classList.add('hidden');
     authOverlay.classList.remove('hidden');
     updateBodyScrollLock();
-    showNotif('Вы вышли из аккаунта');
+    showNotif('You are logged out');
   };
 
   methodInputs.forEach(input => input.addEventListener('change', updateContactInput));
@@ -869,6 +1094,7 @@ function initAuth() {
       });
 
       if (res.status === 401) {
+        setLoadingTextMode('register');
         res = await fetch(`${API_URL}/api/Auth/register`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -897,7 +1123,9 @@ function initAuth() {
 function updateBodyScrollLock() {
   const authVisible = !document.getElementById('authOverlay').classList.contains('hidden');
   const confirmVisible = document.getElementById('confirmModal').classList.contains('show');
-  document.body.classList.toggle('modal-open', authVisible || confirmVisible);
+  const qrBuildVisible = document.getElementById('qrBuildModal').classList.contains('show');
+  const qrDeleteVisible = document.getElementById('qrDeleteModal').classList.contains('show');
+  document.body.classList.toggle('modal-open', authVisible || confirmVisible || qrBuildVisible || qrDeleteVisible);
 }
 
 function formatTime(iso) {

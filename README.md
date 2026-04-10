@@ -1,55 +1,65 @@
-# ECode
+﻿# ECode
 
-ECode is a minimalist web application for generating and scanning QR codes.
-It includes a browser-based frontend, SQL database scripts, and integration points for a remote REST API.
+<p align="center">
+  <img src="https://readme-typing-svg.demolab.com?font=Fira+Code&weight=600&pause=900&color=00B8A9&center=true&vCenter=true&width=650&lines=Generate+QR+codes+in+seconds;Scan+and+track+events+from+camera;Clean+frontend+%2B+SQL-ready+backend+scripts" alt="Typing animation" />
+</p>
 
-## Features
+<p align="center">
+  <img src="https://img.shields.io/badge/Frontend-HTML%2FCSS%2FJS-00B8A9?style=for-the-badge" alt="Frontend" />
+  <img src="https://img.shields.io/badge/Database-SQL%20Server%20%2F%20Supabase-1E3A8A?style=for-the-badge" alt="Database" />
+  <img src="https://img.shields.io/badge/Status-Active-success?style=for-the-badge" alt="Status" />
+</p>
 
-- User login/registration by email or phone
-- Remember-me session persistence in `localStorage`
-- QR code generation with compact UID payloads
-- QR code scanning from camera using `jsQR`
-- History list of generated codes
-- QR download as PNG
-- Copy generated QR ID to clipboard
-- Create and manage up to 3 custom categories per user
-- Operation cooldown protection for create/view/delete actions
-- Confirmation modals for destructive actions
-- Scan event tracking and scan counter
-- Responsive, single-page UI with tabs (Create / Scan)
+ECode is a minimalist web app for creating and scanning QR codes.
+It combines a browser frontend, SQL scripts, and integration with a REST API backend.
 
-## Tech Stack
+## 🚀 What You Get
 
-- HTML5 (`index.html`)
-- CSS3 (`Assets/CSSs/index.css`)
-- Vanilla JavaScript (`Assets/Scripts/index.js`)
-- Third-party libraries:
-  - `qrcodejs` (QR rendering)
-  - `jsQR` (QR decoding)
+- 🔐 Login and registration by email or phone
+- 💾 Remember-me sessions in `localStorage`
+- ⚡ Fast QR generation with compact UID payloads
+- 📷 Camera scanning via `jsQR`
+- 🧾 History of generated codes
+- 🖼️ Download QR as PNG
+- 📋 Copy QR ID to clipboard
+- 🗂️ Up to 3 custom categories per user
+- ⏱️ Cooldown protection for create/view/delete actions
+- ✅ Confirmation modals for destructive operations
+- 📈 Scan event tracking + scan counter
+- 📱 Responsive single-page interface (Create / Scan tabs)
+
+## 🛠️ Tech Stack
+
+- `index.html` (HTML5)
+- `Assets/CSSs/index.css` (CSS3)
+- `Assets/Scripts/index.js` (Vanilla JavaScript)
+- Libraries:
+  - `qrcodejs` for QR rendering
+  - `jsQR` for QR decoding
 - REST API backend (configured in frontend)
-- SQL scripts for SQL Server and Supabase/PostgreSQL RLS
+- SQL scripts for SQL Server and Supabase/PostgreSQL (RLS)
 
-## Project Structure
+## 📁 Project Structure
 
 ```text
 ECode/
-+- index.html
-+- Assets/
-�  +- CSSs/
-�  �  L- index.css
-�  L- Scripts/
-�     +- index.js
-�     L- jsQR.min.js
-L- Database/
-   +- ECodeDB.sql
-   L- SupabaseRLS.sql
+├─ index.html
+├─ Assets/
+│  ├─ CSSs/
+│  │  └─ index.css
+│  └─ Scripts/
+│     ├─ index.js
+│     └─ jsQR.min.js
+└─ Database/
+   ├─ ECodeDB.sql
+   └─ SupabaseRLS.sql
 ```
 
-## How It Works
+## ⚙️ How It Works
 
 ### QR Format
 
-Generated QR payloads are compact and based on an internal UID pattern:
+Generated payload format:
 
 ```text
 EC-YYYYMMDDHHMM-USERCODE-QRID
@@ -61,27 +71,19 @@ Example:
 EC-202604051530-0000123-AB12CD3
 ```
 
-- `YYYYMMDDHHMM`: creation timestamp
-- `USERCODE`: 7-digit user code derived from user ID
-- `QRID`: random 7-character alphanumeric suffix
+- `YYYYMMDDHHMM` -> creation timestamp
+- `USERCODE` -> 7-digit code derived from user ID
+- `QRID` -> random 7-char alphanumeric suffix
 
 ### Frontend Flow
 
-1. User signs in or registers.
-2. User fills QR form and generates a QR code.
-3. Frontend posts data to backend and refreshes history.
-4. User can scan QR codes via camera.
-5. Scan events are posted to backend for analytics/counting.
+1. User signs in or creates an account.
+2. User fills the form and generates a QR code.
+3. Frontend sends data to backend and updates history.
+4. User scans QR with camera.
+5. Scan events are posted for counting/analytics.
 
-## API Integration
-
-The frontend points to:
-
-```js
-const API_URL = 'https://ecode-api-oc7z.onrender.com';
-```
-
-Used endpoints (from frontend code):
+Endpoints used in frontend:
 
 - `POST /api/Auth/login`
 - `POST /api/Auth/register`
@@ -92,11 +94,11 @@ Used endpoints (from frontend code):
 - `POST /api/Scan`
 - `GET /api/Scan/count/{userId}`
 
-## Database
+## 🗄️ Database
 
 ### `Database/ECodeDB.sql` (SQL Server)
 
-Creates and configures:
+Creates:
 
 - `users`
 - `categories`
@@ -106,48 +108,46 @@ Creates and configures:
 Includes:
 
 - constraints and indexes
-- computed columns (including normalized contact and user code)
+- computed columns (normalized contact and user code)
 - UID format checks
 - update trigger(s)
 - seed data for system categories
 
 ### `Database/SupabaseRLS.sql` (PostgreSQL / Supabase)
 
-- Enables RLS on `users`, `categories`, `qr_codes`, `qr_scan_events`
+- Enables RLS for `users`, `categories`, `qr_codes`, `qr_scan_events`
 - Adds service-role-only policies for backend access
-- Provides optional diagnostics query
+- Includes optional diagnostics query
 
-## Local Run
+## ▶️ Run Locally
 
-This project is static on the frontend side.
-You can run it with any static server.
+Frontend is static, so any static server is enough.
 
-## Configuration
+## 🔧 Configuration
 
-If you have your own backend, update `API_URL` in:
+If you use your own backend, update `API_URL` in:
 
 - `Assets/Scripts/index.js`
 
-## Notes
+## 📝 Notes
 
-- Camera scan requires browser camera permission.
-- For secure camera access in production, use HTTPS.
-- Some UI strings are currently mixed-language and can be fully localized if needed.
+- Camera scan needs browser camera permission.
+- Use HTTPS in production for secure camera access.
+- Some UI strings are mixed-language and can be fully localized.
 
-## Security Considerations
+## 🔒 Security
 
-- Do not expose service-role credentials in frontend code.
-- Keep authentication and privileged DB access on the backend only.
-- Use HTTPS in production to protect auth and camera-related flows.
+- Never expose service-role credentials in frontend code.
+- Keep auth and privileged DB operations on backend only.
+- Use HTTPS in production to protect auth and camera flows.
 
-## Roadmap Ideas
+## 🧭 Roadmap
 
-- Full i18n (EN/AZ/RU) for all UI strings
 - Better SEO with multilingual routing and `hreflang`
-- Export history to CSV
+- History export to CSV
 - Role-based dashboards and analytics
 
-## License
+## 📄 License
 
-No license file is included in this repository yet.
-Add a `LICENSE` file (for example MIT) if you plan to distribute it.
+No license file is included yet.
+Add `LICENSE` (for example MIT) before distribution.
